@@ -15,6 +15,6 @@
     "declaration": false,
     "types": ["node", "react"]
   },
-  "include": ["src/**/*.tsx", "src/**/*.ts"],
+  "include": ["src/**/*.tsx", "src/**/*.ts", "types"],
   "exclude": ["dist", "node_modules"]
 }
