@@ -286,10 +286,10 @@ export function PluginsPanel({
   }, [onFocusChange]);
 
   useEffect(() => {
-    if (selectedIndex >= sortedPlugins.length) {
-      setSelectedIndex(Math.max(0, sortedPlugins.length - 1));
+    if (selectedIndex >= listOptions.length) {
+      setSelectedIndex(Math.max(0, listOptions.length - 1));
     }
-  }, [selectedIndex, sortedPlugins.length]);
+  }, [selectedIndex, listOptions.length]);
 
   useEffect(() => {
     if (showOptions) {
