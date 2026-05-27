@@ -21,6 +21,18 @@ const LEGACY_DEFAULT_PLUGINS_JSON_PATH = path.join(
   "quartz.plugins.default.json",
 );
 
+interface PluginSourceObject {
+  repo: string
+  name?: string
+}
+
+type PluginSource = string | PluginSourceObject;
+
+interface NormalizedPluginSource {
+  repoUrl: string;
+  name: string;
+}
+
 function resolveConfigPath(): string {
   if (fs.existsSync(CONFIG_YAML_PATH)) return CONFIG_YAML_PATH;
   if (fs.existsSync(LEGACY_PLUGINS_JSON_PATH)) return LEGACY_PLUGINS_JSON_PATH;
@@ -100,6 +112,19 @@ export function writeLockfile(lockfile: Record<string, unknown>): void {
     lockfile = { ...lockfile, plugins: sorted };
   }
   fs.writeFileSync(LOCKFILE_PATH, JSON.stringify(lockfile, null, 2) + "\n");
+}
+
+function normalizePluginSource(source: PluginSource): NormalizedPluginSource {
+  if (typeof source === "string") {
+    return {
+      repoUrl: source,
+      name: extractPluginName(source),
+    };
+  }
+  return {
+    repoUrl: source.repo,
+    name: source.name ?? extractPluginName(source.repo),
+  };
 }
 
 export function extractPluginName(source: string): string {
@@ -217,8 +242,9 @@ export function getEnrichedPlugins(): Array<{
   if (!plugins) return [];
 
   return plugins.map((entry, index) => {
-    const source = entry.source as string;
-    const name = extractPluginName(source);
+    const sourceRaw = entry.source as PluginSource;
+    const normalized = normalizePluginSource(sourceRaw);
+    const name = normalized.name;
     const pluginDir = path.join(PLUGINS_DIR, name);
     const installed = fs.existsSync(pluginDir);
     const lockedPlugins = lockfile?.plugins as
@@ -242,7 +268,7 @@ export function getEnrichedPlugins(): Array<{
       index,
       name,
       displayName: (manifest?.displayName as string) ?? name,
-      source,
+      source: normalized.repoUrl,
       enabled: (entry.enabled as boolean) ?? true,
       options: (entry.options as Record<string, unknown>) ?? {},
       order: (entry.order as number) ?? 50,
