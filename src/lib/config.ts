@@ -102,7 +102,23 @@ export function writeLockfile(lockfile: Record<string, unknown>): void {
   fs.writeFileSync(LOCKFILE_PATH, JSON.stringify(lockfile, null, 2) + "\n");
 }
 
-export function extractPluginName(source: string): string {
+/** Object form of a plugin source in quartz.config.yaml (e.g. a plugin in a monorepo subdir). */
+export interface PluginSourceObject {
+  repo: string;
+  subdir?: string;
+  ref?: string;
+  name?: string;
+}
+
+/** A plugin source: string shorthand or object form. */
+export type PluginSource = string | PluginSourceObject;
+
+export function extractPluginName(source: PluginSource): string {
+  if (typeof source === "object" && source !== null) {
+    if (source.name) return source.name;
+    return extractPluginName(source.repo ?? "");
+  }
+  if (typeof source !== "string") return String(source);
   if (source.startsWith("github:")) {
     const withoutPrefix = source.replace("github:", "");
     const [repoPath] = withoutPrefix.split("#");
@@ -115,6 +131,17 @@ export function extractPluginName(source: string): string {
     return match?.[1] ?? source;
   }
   return source;
+}
+
+/** Human-readable form of a plugin source, e.g. `github:owner/repo#ref (subdir: plugin)`. */
+export function formatPluginSource(source: PluginSource): string {
+  if (typeof source === "object" && source !== null) {
+    const repo = source.repo ?? "";
+    const withRef =
+      source.ref && !repo.includes("#") ? `${repo}#${source.ref}` : repo;
+    return source.subdir ? `${withRef} (subdir: ${source.subdir})` : withRef;
+  }
+  return typeof source === "string" ? source : String(source);
 }
 
 export function readManifestFromPackageJson(
@@ -133,11 +160,21 @@ export function readManifestFromPackageJson(
   }
 }
 
-export function parseGitSource(source: string): {
+export function parseGitSource(source: PluginSource): {
   name: string;
   url: string;
   ref?: string;
+  subdir?: string;
 } {
+  if (typeof source === "object" && source !== null) {
+    const parsed = parseGitSource(source.repo);
+    return {
+      ...parsed,
+      name: source.name ?? parsed.name,
+      ref: source.ref ?? parsed.ref,
+      ...(source.subdir ? { subdir: source.subdir } : {}),
+    };
+  }
   if (source.startsWith("github:")) {
     const [repoPath, ref] = source.replace("github:", "").split("#");
     const [owner, repo] = repoPath.split("/");
@@ -217,8 +254,9 @@ export function getEnrichedPlugins(): Array<{
   if (!plugins) return [];
 
   return plugins.map((entry, index) => {
-    const source = entry.source as string;
-    const name = extractPluginName(source);
+    const rawSource = entry.source as PluginSource;
+    const name = extractPluginName(rawSource);
+    const source = formatPluginSource(rawSource);
     const pluginDir = path.join(PLUGINS_DIR, name);
     const installed = fs.existsSync(pluginDir);
     const lockedPlugins = lockfile?.plugins as
