@@ -32,6 +32,13 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     needs: [test]
+    # npm trusted publishing: `id-token: write` lets npm exchange the job's OIDC token for a
+    # short-lived publish credential (with provenance). npm only allows configuring that for a
+    # package that exists, so the first release still uses NPM_TOKEN; npm tries OIDC first and
+    # falls back to the token, so the token can be removed once trusted publishing is set up.
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,7 +46,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          # Trusted publishing needs npm 11.5.1 or later, which Node 24 bundles (22 has npm 10).
+          node-version: "24"
           cache: "npm"
           registry-url: "https://registry.npmjs.org"
 
