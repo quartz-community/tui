@@ -13,15 +13,50 @@ export interface OperationResult {
   errors?: string[];
 }
 
+// Characters allowed in an argument that must go through cmd.exe on Windows (as Quartz's own
+// npmCommand, quartz/cli/subprocess.js, plus `#` for `github:user/repo#ref`). Each argument is wrapped in double quotes, inside which
+// spaces and < > | are literal; `"`, `%` and `!` (which cmd.exe still interprets there) are never
+// allowed.
+const WINDOWS_SHELL_SAFE = /^[A-Za-z0-9@._/:=+~^,<>|*# -]+$/;
+
+/**
+ * How to run `npx <args>`. On Windows npx is `npx.cmd`, which Node only runs through a shell
+ * (CVE-2024-27980): spawning "npx" without one fails with ENOENT, and "npx.cmd" without one with
+ * EINVAL. There every argument must pass a strict whitelist and is quoted. Elsewhere the
+ * arguments go to npx as an array, never through a shell.
+ */
+export function npxCommand(
+  args: string[],
+  platform: string = process.platform,
+): { file: string; args: string[]; shell: boolean } {
+  if (platform !== "win32") return { file: "npx", args, shell: false };
+  const quoted = args.map((arg) => {
+    if (!WINDOWS_SHELL_SAFE.test(arg)) {
+      throw new Error(
+        `Refusing to pass ${JSON.stringify(arg)} to npx through the Windows shell`,
+      );
+    }
+    return `"${arg}"`;
+  });
+  return { file: "npx.cmd", args: quoted, shell: true };
+}
+
 function runQuartzPlugin(
   args: string[],
   onProgress?: ProgressCallback,
 ): Promise<OperationResult> {
   return new Promise((resolve) => {
-    const child = spawn("npx", ["quartz", "plugin", ...args], {
+    let cmd: ReturnType<typeof npxCommand>;
+    try {
+      cmd = npxCommand(["quartz", "plugin", ...args]);
+    } catch (err) {
+      resolve({ success: false, errors: [(err as Error).message] });
+      return;
+    }
+    const child = spawn(cmd.file, cmd.args, {
       cwd: process.cwd(),
       stdio: ["ignore", "pipe", "pipe"],
-      shell: false,
+      shell: cmd.shell,
     });
 
     const errors: string[] = [];

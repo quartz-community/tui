@@ -35,7 +35,8 @@
     "build": "node build.mjs",
     "dev": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck"
+    "test": "node --test test/*.test.ts",
+    "check": "npm run typecheck && npm run test"
   },
   "dependencies": {
     "@opentui/core": "^0.1.80",
