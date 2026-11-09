@@ -34,18 +34,19 @@
   "scripts": {
     "build": "node build.mjs",
     "dev": "node build.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck"
   },
   "dependencies": {
     "@opentui/core": "^0.1.80",
     "@opentui/react": "^0.1.80",
     "react": "^19.2.4",
-    "yaml": "^2.8.2",
-    "esbuild": "^0.27.2"
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@types/node": "^25.0.10",
     "@types/react": "^19.2.14",
+    "esbuild": "^0.28.2",
     "typescript": "^5.9.3"
   },
   "quartz": {
